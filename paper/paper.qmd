@@ -1,13 +1,10 @@
 ---
-title: "My title"
-subtitle: "My subtitle if needed"
-author: 
-  - First author
-  - Another author
-thanks: "Code and data are available at: LINK."
+title: "Dynamics of 2016 United States Election persist in 2022 poll"
+author: Allen Uy
+thanks: "Code and data are available at: [https://github.com/varygx/US2024PollEthnicity](https://github.com/varygx/US2024PollEthnicity)."
 date: today
 date-format: long
-abstract: "First sentence. Second sentence. Third sentence. Fourth sentence."
+abstract: "This study examines the factors shaping support for the Republican and Democratic parties of the United States. By analyzing demographics in a 2022 political poll by the Pew Research Center, we discovered that the Democratic Party is favoured by minorities and higher education, a trend continuing from 2016."
 format: pdf
 number-sections: true
 bibliography: references.bib
@@ -18,92 +15,58 @@ bibliography: references.bib
 #| warning: false
 #| message: false
 
-library(tidyverse)
-library(palmerpenguins)
-```
+library("tidyverse")
+library("arrow")
+library("here")
+library("knitr")
+library("kableExtra")
 
+poll_data <- read_parquet(here::here("data/analysis_data/clean_polldata.parquet"))
+```
 
 # Introduction
 
-You can and should cross-reference sections and sub-sections. We use @citeR and @rohan.
+A poll published by The New York Times in 2016 revealed a significant disparity in support for the two candidates, Donald Trump and Hillary Clinton, based on ethnicity in the state of Florida [@citeCohn]. With the 2024 United States election on the horizon, we use the latest publicly available data from the Pew Research Center to compare whether the same voters are likely to vote Republican or Democrat.
 
-The remainder of this paper is structured as follows. @sec-data....
+We find that women and individuals with higher levels of education are more likely to vote Democrat. Non-binary and black individuals stand out as the main factors for voting Democrat over Republican.
 
-
+The subsequent sections follow a structured format. @sec-data outlines the source and variables of interest for our analysis. @sec-model details the construction and methodology of the statistical models used. @sec-results presents the key findings of our analysis, while @sec-discussion critically reviews the content, addresses the implications of the results, acknowledges model limitations, and suggests potential research directions.
 
 # Data {#sec-data}
 
-Some of our data is of penguins (@fig-bills), from @palmerpenguins.
+The dataset used in this paper was gathered by the Pew Research Center from 5,098 panelists in 2022 [@citePewResearch] and analyzed using R [@citeR] with help from `tidyverse` [@citeTidyverse], `arrow` [@citeArrow], `rstanarm` [@citeRstanarm], `modelsummary` [@citeModelsummary], `testthat` [@citeTestthat], `here` [@citeHere], `foreign` [@citeForeign], `knitr` [@citeKnitr], and `kableExtra` [@citeKableExtra]. Panelists were surveyed questions on the politics and topics relevant to the time. The cleaned dataset has 4 variables of interest: gender, education, ethnicity, and party. All of these values are self-reported through the survey the panelists completed. @tbl-data_preview shows a preview of the cleaned dataset.
 
-```{r}
-#| label: fig-bills
-#| fig-cap: Bills of penguins
-#| echo: false
-
-ggplot(penguins, aes(x = island, fill = species)) +
-  geom_bar(alpha = 0.8) +
-  scale_fill_manual(values = c("darkorange","purple","cyan4"),
-                    guide = "none") +
-  theme_minimal() +
-  facet_wrap(~species, ncol = 1) +
-  coord_flip()
+```{r, echo=FALSE}
+#| label: tbl-data_preview
+#| tbl-cap: Sample of cleaned dataset
+head(poll_data, 5) %>% 
+  kable(
+    booktabs = TRUE,
+    linesep = ""
+  ) %>% kable_styling(latex_options = "scale_down")
 ```
 
-Talk more about it.
+# Model {#sec-model}
 
-And also planes (@fig-planes). (You can change the height and width, but don't worry about doing that until you have finished every other aspect of the paper - Quarto will try to make it look nice and the defaults usually work well once you have enough text.)
-
-```{r}
-#| label: fig-planes
-#| fig-cap: Relationship between wing length and width
-#| echo: false
-#| warning: false
-#| message: false
-
-analysis_data <- read_csv(here::here("data/analysis_data/analysis_data.csv"))
-
-analysis_data |> 
-  ggplot(aes(x = width, y = length)) +
-  geom_point(alpha = 0.8) +
-  theme_minimal() +
-  labs(x = "Wing width (mm)",
-       y = "Wing length (mm)")
-```
-
-Talk way more about it. 
-
-
-
-# Model
-
-The goal of our modelling strategy is twofold. Firstly,...
-
-Here we briefly describe the Bayesian analysis model used to investigate... Background details and diagnostics are included in [Appendix -@sec-model-details].
+We investigate one model that might explain political support. A logistic regression model using gender, education, and ethnicity as predictor variables. Logistic regression is well-suited for this problem due to the United States' binary party system. We can estimate the probability of political support based on our predictor variables of gender, education, and ethnicity.
 
 ## Model set-up
 
-Define $y_i$ as the number of seconds that the plane remained aloft. Then $\beta_i$ is the wing width and $\gamma_i$ is the wing length, both measured in millimeters.  
+Define $y_i$ as the political preference of the respondent and equal to 1 if Democrat and 0 if Republican. Then $gender_i$, $education_i$, $ethnicity_i$ are the respective answers of the panelist.
 
-\begin{align} 
-y_i|\mu_i, \sigma &\sim \mbox{Normal}(\mu_i, \sigma) \\
-\mu_i &= \alpha + \beta_i + \gamma_i\\
-\alpha &\sim \mbox{Normal}(0, 2.5) \\
-\beta &\sim \mbox{Normal}(0, 2.5) \\
-\gamma &\sim \mbox{Normal}(0, 2.5) \\
-\sigma &\sim \mbox{Exponential}(1)
-\end{align}
+```{=tex}
+\begin{align*}
+y_i|\pi_i &\sim \mbox{Bern}(\pi_i) \\ 
+\text{logit}(\pi_i) &= \beta_0 + \beta_1 \times \text{gender}_i + \beta_2 \times \text{education}_i + \beta_3 \times \text{ethnicity}_i \\ 
+\beta_0 &\sim \text{Normal}(0, 2.5) \\ 
+\beta_1 &\sim \text{Normal}(0, 2.5) \\ 
+\beta_2 &\sim \text{Normal}(0, 2.5) \\ 
+\beta_3 &\sim \text{Normal}(0, 2.5) \\ 
+\end{align*}
+```
+We run the model in R [@citeR] using the `rstanarm` package of @citeRstanarm. We use the default priors from `rstanarm`.
 
-We run the model in R [@citeR] using the `rstanarm` package of @rstanarm. We use the default priors from `rstanarm`.
-
-
-### Model justification
-
-We expect a positive relationship between the size of the wings and time spent aloft. In particular...
-
-We can use maths by including latex between dollar signs, for instance $\theta$.
-
-
-# Results
+# Results {#sec-results}
 
 Our results are summarized in @tbl-modelresults.
 
@@ -115,107 +78,44 @@ Our results are summarized in @tbl-modelresults.
 
 library(rstanarm)
 
-first_model <-
-  readRDS(file = here::here("models/first_model.rds"))
+poll_model <-
+  readRDS(file = here::here("models/poll_model.rds"))
 ```
 
 ```{r}
 #| echo: false
 #| eval: true
 #| label: tbl-modelresults
-#| tbl-cap: "Explanatory models of flight time based on wing width and wing length"
+#| tbl-cap: "Explanatory model of party affiliation based on gender, education, and ethnicity"
 #| warning: false
 
 modelsummary::modelsummary(
   list(
-    "First model" = first_model
+    "Poll model" = poll_model
   ),
   statistic = "mad",
   fmt = 2
 )
 ```
 
+`genderIn some other way`, which describes non-binary individuals, and `ethnicityBlack non-Hispanic` stand out as they have the largest coefficients of 1.74 and 2.22. Our model predicts that the majority of these individuals are likely to vote for the Democrat party. College graduates and postgraduates are more likely to vote Democrat compared to lower levels of education. Other visible minorities are also predicted to increase the chance of voting for the Democrat party.
 
+# Discussion {#sec-discussion}
 
+## Conclusion {#sec-first-point}
 
-# Discussion
+Through analysis of a 2022 political poll done by the Pew Research Center we were able to create a logistic regression model to predict support for the Republican and Democrat of the United States. Our model indicates that those with higher education levels and visible minorities are more likely to vote Democrat. In particular, black and non-binary individuals are much more likely to vote Democrat.
 
-## First discussion point {#sec-first-point}
+## Model Limitations
 
-If my paper were 10 pages, then should be be at least 2.5 pages. The discussion is a chance to show off what you know and what you learnt from all this. 
+Our model has an R2 of 0.116, meaning approximately 11.6% of variance in the outcome variable is explained by our chosen predictor variables. This value is adequate in the context of social science, indicating that the chosen factors can explain political support.
 
-## Second discussion point
+Logistic regression assumes a linear relationship between our predictor variables and the log-odds of our outcome variable. This assumption may not hold up, especially when our variables are correlated. For example, there is a correlation between ethnicity and age in the sense that equal opportunity is a concern.
 
-## Third discussion point
+## Next Steps
 
-## Weaknesses and next steps
-
-Weaknesses and next steps should also be included.
-
-\newpage
-
-\appendix
-
-# Appendix {-}
-
-
-# Additional data details
-
-# Model details {#sec-model-details}
-
-## Posterior predictive check
-
-In @fig-ppcheckandposteriorvsprior-1 we implement a posterior predictive check. This shows...
-
-In @fig-ppcheckandposteriorvsprior-2 we compare the posterior with the prior. This shows... 
-
-```{r}
-#| eval: true
-#| echo: false
-#| message: false
-#| warning: false
-#| label: fig-ppcheckandposteriorvsprior
-#| layout-ncol: 2
-#| fig-cap: "Examining how the model fits, and is affected by, the data"
-#| fig-subcap: ["Posterior prediction check", "Comparing the posterior with the prior"]
-
-pp_check(first_model) +
-  theme_classic() +
-  theme(legend.position = "bottom")
-
-posterior_vs_prior(first_model) +
-  theme_minimal() +
-  scale_color_brewer(palette = "Set1") +
-  theme(legend.position = "bottom") +
-  coord_flip()
-```
-
-## Diagnostics
-
-@fig-stanareyouokay-1 is a trace plot. It shows... This suggests...
-
-@fig-stanareyouokay-2 is a Rhat plot. It shows... This suggests...
-
-```{r}
-#| echo: false
-#| eval: true
-#| message: false
-#| warning: false
-#| label: fig-stanareyouokay
-#| fig-cap: "Checking the convergence of the MCMC algorithm"
-#| fig-subcap: ["Trace plot", "Rhat plot"]
-#| layout-ncol: 2
-
-plot(first_model, "trace")
-
-plot(first_model, "rhat")
-```
-
-
+Our analysis should be repeated on a state level to see whether these trends apply nationally or vary from state to state.
 
 \newpage
-
 
 # References
-
-
